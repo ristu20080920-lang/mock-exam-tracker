@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>模試成績トラッカー</title>
+<style>
+  :root{
+    --bg:#f5f7fb;
+    --card:#ffffff;
+    --text:#182033;
+    --muted:#697386;
+    --line:#dfe5ee;
+    --accent:#315efb;
+    --accent2:#eff3ff;
+    --danger:#d92d20;
+    --good:#138a5b;
+    --shadow:0 8px 28px rgba(27,39,66,.08);
+    --radius:18px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Yu Gothic UI","Yu Gothic",Meiryo,sans-serif;
+    background:var(--bg); color:var(--text);
+  }
+  header{
+    position:sticky; top:0; z-index:5;
+    background:rgba(245,247,251,.92); backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line);
+  }
+  .head{max-width:1180px;margin:auto;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brand{font-weight:800;font-size:20px}
+  .sub{font-size:12px;color:var(--muted);font-weight:500}
+  .wrap{max-width:1180px;margin:auto;padding:18px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+  button,.fileLabel{
+    border:0;border-radius:12px;padding:11px 15px;font-weight:700;cursor:pointer;
+    background:var(--card);box-shadow:0 2px 8px rgba(0,0,0,.05);color:var(--text);
+  }
+  button.primary{background:var(--accent);color:white}
+  button.danger{color:var(--danger)}
+  input[type=file]{display:none}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .stat{padding:18px}
+  .stat .label{font-size:13px;color:var(--muted);font-weight:700}
+  .stat .value{font-size:30px;font-weight:850;margin-top:5px}
+  .stat .hint{font-size:12px;color:var(--muted);margin-top:4px}
+  .section{padding:18px;margin-bottom:16px}
+  .section h2{font-size:17px;margin:0 0 14px}
+  .filters{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:10px;margin-bottom:12px}
+  input,select,textarea{
+    width:100%;border:1px solid var(--line);border-radius:11px;padding:11px 12px;
+    background:white;color:var(--text);font:inherit;
+  }
+  textarea{min-height:92px;resize:vertical}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:11px 9px;border-bottom:1px solid var(--line);text-align:left;font-size:13px;vertical-align:top}
+  th{font-size:12px;color:var(--muted);position:sticky;top:59px;background:white;z-index:1}
+  tr:last-child td{border-bottom:0}
+  .score{font-weight:800}
+  .badge{display:inline-block;padding:4px 8px;border-radius:999px;background:var(--accent2);color:var(--accent);font-weight:800;font-size:12px}
+  .empty{padding:28px;text-align:center;color:var(--muted)}
+  .chartWrap{height:290px}
+  canvas{width:100%;height:100%}
+  dialog{
+    width:min(920px,96vw);max-height:92vh;border:0;border-radius:22px;padding:0;
+    box-shadow:0 24px 70px rgba(0,0,0,.25);
+  }
+  dialog::backdrop{background:rgba(20,28,45,.5)}
+  .modalHead{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .modalHead h2{margin:0;font-size:19px}
+  .modalBody{padding:18px 20px;overflow:auto;max-height:calc(92vh - 140px)}
+  .formGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .field label{display:block;font-size:12px;color:var(--muted);font-weight:750;margin:0 0 5px}
+  .span2{grid-column:span 2}.span3{grid-column:1/-1}
+  .subjects{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+  .subjectRow{display:grid;grid-template-columns:1.4fr .8fr .8fr .8fr auto;gap:8px;margin-bottom:8px;align-items:center}
+  .subjectRow button{padding:9px 11px}
+  .modalFoot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}
+  .small{font-size:12px;color:var(--muted)}
+  .right{text-align:right}
+  .actions{display:flex;gap:6px}
+  .actions button{padding:7px 9px;font-size:12px;box-shadow:none;border:1px solid var(--line)}
+  @media(max-width:820px){
+    .grid{grid-template-columns:repeat(2,1fr)}
+    .filters{grid-template-columns:1fr}
+    .formGrid{grid-template-columns:1fr 1fr}
+    .span3{grid-column:1/-1}
+    .subjectRow{grid-template-columns:1fr 1fr 1fr 1fr auto}
+    .tableScroll{overflow:auto}
+    table{min-width:820px}
+  }
+  @media(max-width:540px){
+    .wrap{padding:12px}
+    .head{padding:12px}
+    .grid{grid-template-columns:1fr 1fr;gap:10px}
+    .stat{padding:14px}.stat .value{font-size:24px}
+    .formGrid{grid-template-columns:1fr}
+    .span2,.span3{grid-column:auto}
+    .subjectRow{grid-template-columns:1fr 1fr}
+    .subjectRow .removeBtn{grid-column:2}
+  }
+</style>
+
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#315efb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="模試トラッカー">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+</head>
+<body>
+<header>
+  <div class="head">
+    <div>
+      <div class="brand">模試成績トラッカー</div>
+      <div class="sub">記録・分析・振り返りを1か所に</div>
+    </div>
+    <button class="primary" id="addBtn">＋ 模試を追加</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="toolbar">
+    <button id="exportBtn">CSVを書き出す</button>
+    <label class="fileLabel" for="importFile">CSVを読み込む</label>
+    <input type="file" id="importFile" accept=".csv,text/csv" />
+    <button id="sampleBtn">サンプルを入れる</button>
+    <button class="danger" id="clearBtn">全データ削除</button>
+  </div>
+
+  <section class="grid">
+    <div class="card stat"><div class="label">登録模試</div><div class="value" id="statCount">0</div><div class="hint">件</div></div>
+    <div class="card stat"><div class="label">最新総合点</div><div class="value" id="statLatest">—</div><div class="hint" id="statLatestSub">まだ記録がありません</div></div>
+    <div class="card stat"><div class="label">最高総合点</div><div class="value" id="statBest">—</div><div class="hint" id="statBestSub">—</div></div>
+    <div class="card stat"><div class="label">最新平均との差</div><div class="value" id="statDiff">—</div><div class="hint">直前回との比較</div></div>
+  </section>
+
+  <section class="card section">
+    <h2>総合点の推移</h2>
+    <div class="chartWrap"><canvas id="trendChart"></canvas></div>
+  </section>
+
+  <section class="card section">
+    <h2>模試一覧</h2>
+    <div class="filters">
+      <input id="searchInput" placeholder="模試名・志望校・メモで検索" />
+      <select id="typeFilter">
+        <option value="">すべての模試</option>
+        <option>共通テスト模試</option>
+        <option>記述模試</option>
+        <option>大学別模試</option>
+        <option>校内模試</option>
+        <option>その他</option>
+      </select>
+      <select id="sortSelect">
+        <option value="dateDesc">新しい順</option>
+        <option value="dateAsc">古い順</option>
+        <option value="scoreDesc">総合点が高い順</option>
+        <option value="devDesc">偏差値が高い順</option>
+      </select>
+    </div>
+    <div class="tableScroll">
+      <table>
+        <thead>
+          <tr>
+            <th>実施日</th><th>模試名</th><th>種別</th><th>総合点</th><th>得点率</th>
+            <th>偏差値</th><th>順位</th><th>判定</th><th>志望校</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="recordsBody"></tbody>
+      </table>
+      <div class="empty" id="emptyState">まだ模試が登録されていません。</div>
+    </div>
+  </section>
+</main>
+
+<dialog id="recordDialog">
+  <form method="dialog" id="recordForm">
+    <div class="modalHead">
+      <h2 id="dialogTitle">模試を追加</h2>
+      <button value="cancel" type="button" id="closeDialog">✕</button>
+    </div>
+    <div class="modalBody">
+      <input type="hidden" id="editId" />
+      <div class="formGrid">
+        <div class="field"><label>実施日</label><input type="date" id="date" required /></div>
+        <div class="field span2"><label>模試名</label><input id="name" placeholder="例：第2回全統共通テスト模試" required /></div>
+        <div class="field"><label>種別</label>
+          <select id="type">
+            <option>共通テスト模試</option><option>記述模試</option><option>大学別模試</option><option>校内模試</option><option>その他</option>
+          </select>
+        </div>
+        <div class="field"><label>総合点</label><input type="number" step="0.1" id="totalScore" placeholder="650" /></div>
+        <div class="field"><label>満点</label><input type="number" step="0.1" id="maxScore" placeholder="1000" /></div>
+        <div class="field"><label>総合偏差値</label><input type="number" step="0.1" id="deviation" placeholder="58.4" /></div>
+        <div class="field"><label>総合順位</label><input type="number" id="rank" placeholder="1234" /></div>
+        <div class="field"><label>受験者数</label><input type="number" id="participants" placeholder="25000" /></div>
+        <div class="field"><label>第一志望判定</label>
+          <select id="judgement"><option value="">—</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option></select>
+        </div>
+        <div class="field span2"><label>第一志望</label><input id="targetSchool" placeholder="例：名古屋大学 工学部 機械・航空宇宙工学科" /></div>
+        <div class="field"><label>目標点</label><input type="number" step="0.1" id="targetScore" placeholder="800" /></div>
+        <div class="field span3"><label>良かった点</label><textarea id="good" placeholder="できたこと・伸びたこと"></textarea></div>
+        <div class="field span3"><label>課題・失点原因</label><textarea id="issues" placeholder="時間不足、知識不足、計算ミスなど"></textarea></div>
+        <div class="field span3"><label>次回までにやること</label><textarea id="nextAction" placeholder="具体的な改善行動"></textarea></div>
+      </div>
+
+      <div class="subjects">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div>
+            <strong>科目別成績</strong>
+            <div class="small">点数・満点・偏差値を細かく記録できます。</div>
+          </div>
+          <button type="button" id="addSubject">＋ 科目追加</button>
+        </div>
+        <div id="subjectRows"></div>
+      </div>
+    </div>
+    <div class="modalFoot">
+      <button type="button" id="cancelBtn">キャンセル</button>
+      <button type="submit" class="primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const STORAGE_KEY = "mock_exam_tracker_v1";
+let records = loadRecords();
+
+const $ = id => document.getElementById(id);
+const dialog = $("recordDialog");
+
+function loadRecords(){
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+function saveRecords(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
+function num(v){ return v === "" || v == null ? null : Number(v); }
+function fmt(v,d=0){ return v==null || Number.isNaN(v) ? "—" : Number(v).toLocaleString(undefined,{maximumFractionDigits:d}); }
+function pct(score,max){
+  if(score==null || !max) return null;
+  return score/max*100;
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+function defaultSubjects(){
+  return ["英語R","英語L","数学IA","数学IIBC","国語","物理","化学","地理","情報I"]
+    .map(name=>({name,score:null,max:null,deviation:null}));
+}
+
+function subjectRow(data={name:"",score:null,max:null,deviation:null}){
+  const row=document.createElement("div");
+  row.className="subjectRow";
+  row.innerHTML=`
+    <input class="s-name" placeholder="科目名" value="${escapeHtml(data.name||"")}">
+    <input class="s-score" type="number" step="0.1" placeholder="点数" value="${data.score ?? ""}">
+    <input class="s-max" type="number" step="0.1" placeholder="満点" value="${data.max ?? ""}">
+    <input class="s-dev" type="number" step="0.1" placeholder="偏差値" value="${data.deviation ?? ""}">
+    <button type="button" class="removeBtn">削除</button>`;
+  row.querySelector(".removeBtn").onclick=()=>row.remove();
+  $("subjectRows").appendChild(row);
+}
+
+function openNew(){
+  $("recordForm").reset();
+  $("editId").value="";
+  $("dialogTitle").textContent="模試を追加";
+  $("subjectRows").innerHTML="";
+  defaultSubjects().forEach(subjectRow);
+  $("date").value=new Date().toISOString().slice(0,10);
+  dialog.showModal();
+}
+
+function openEdit(id){
+  const r=records.find(x=>x.id===id); if(!r)return;
+  $("editId").value=r.id;
+  $("dialogTitle").textContent="模試を編集";
+  ["date","name","type","totalScore","maxScore","deviation","rank","participants","judgement","targetSchool","targetScore","good","issues","nextAction"]
+    .forEach(k=>$(k).value=r[k] ?? "");
+  $("subjectRows").innerHTML="";
+  (r.subjects?.length?r.subjects:defaultSubjects()).forEach(subjectRow);
+  dialog.showModal();
+}
+
+function readSubjects(){
+  return [...document.querySelectorAll(".subjectRow")].map(row=>({
+    name:row.querySelector(".s-name").value.trim(),
+    score:num(row.querySelector(".s-score").value),
+    max:num(row.querySelector(".s-max").value),
+    deviation:num(row.querySelector(".s-dev").value)
+  })).filter(s=>s.name);
+}
+
+$("recordForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const id=$("editId").value || uid();
+  const rec={id};
+  ["date","name","type","judgement","targetSchool","good","issues","nextAction"].forEach(k=>rec[k]=$(k).value.trim());
+  ["totalScore","maxScore","deviation","rank","participants","targetScore"].forEach(k=>rec[k]=num($(k).value));
+  rec.subjects=readSubjects();
+  const idx=records.findIndex(x=>x.id===id);
+  if(idx>=0) records[idx]=rec; else records.push(rec);
+  saveRecords(); dialog.close(); render();
+});
+
+$("addBtn").onclick=openNew;
+$("addSubject").onclick=()=>subjectRow();
+$("closeDialog").onclick=$("cancelBtn").onclick=()=>dialog.close();
+
+function deleteRecord(id){
+  if(confirm("この模試データを削除しますか？")){
+    records=records.filter(x=>x.id!==id); saveRecords(); render();
+  }
+}
+
+function filtered(){
+  const q=$("searchInput").value.toLowerCase().trim();
+  const type=$("typeFilter").value;
+  let arr=records.filter(r=>{
+    const hay=[r.name,r.targetSchool,r.good,r.issues,r.nextAction].join(" ").toLowerCase();
+    return (!q||hay.includes(q)) && (!type||r.type===type);
+  });
+  const sort=$("sortSelect").value;
+  arr.sort((a,b)=>{
+    if(sort==="dateAsc") return (a.date||"").localeCompare(b.date||"");
+    if(sort==="scoreDesc") return (b.totalScore??-Infinity)-(a.totalScore??-Infinity);
+    if(sort==="devDesc") return (b.deviation??-Infinity)-(a.deviation??-Infinity);
+    return (b.date||"").localeCompare(a.date||"");
+  });
+  return arr;
+}
+
+function renderStats(){
+  $("statCount").textContent=records.length;
+  const byDate=[...records].sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+  const latest=byDate.at(-1);
+  $("statLatest").textContent=latest?.totalScore!=null ? fmt(latest.totalScore,1) : "—";
+  $("statLatestSub").textContent=latest ? `${latest.name}${latest.maxScore ? " / "+fmt(latest.maxScore,1)+"点満点" : ""}` : "まだ記録がありません";
+  const scored=records.filter(r=>r.totalScore!=null);
+  const best=scored.sort((a,b)=>b.totalScore-a.totalScore)[0];
+  $("statBest").textContent=best ? fmt(best.totalScore,1) : "—";
+  $("statBestSub").textContent=best ? best.name : "—";
+  if(byDate.length>=2){
+    const a=byDate.at(-1)?.totalScore,b=byDate.at(-2)?.totalScore;
+    if(a!=null&&b!=null){
+      const d=a-b; $("statDiff").textContent=(d>0?"+":"")+fmt(d,1);
+      $("statDiff").style.color=d>0?"var(--good)":d<0?"var(--danger)":"var(--text)";
+    } else $("statDiff").textContent="—";
+  } else $("statDiff").textContent="—";
+}
+
+function renderTable(){
+  const arr=filtered(), body=$("recordsBody");
+  body.innerHTML="";
+  $("emptyState").style.display=arr.length?"none":"block";
+  arr.forEach(r=>{
+    const rate=pct(r.totalScore,r.maxScore);
+    const rank = r.rank!=null ? `${fmt(r.rank)}${r.participants?` / ${fmt(r.participants)}`:""}` : "—";
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td>${r.date||"—"}</td>
+      <td><strong>${escapeHtml(r.name||"")}</strong></td>
+      <td>${escapeHtml(r.type||"")}</td>
+      <td class="score">${fmt(r.totalScore,1)}${r.maxScore!=null?` / ${fmt(r.maxScore,1)}`:""}</td>
+      <td>${rate==null?"—":rate.toFixed(1)+"%"}</td>
+      <td>${fmt(r.deviation,1)}</td>
+      <td>${rank}</td>
+      <td>${r.judgement?`<span class="badge">${escapeHtml(r.judgement)}判定</span>`:"—"}</td>
+      <td>${escapeHtml(r.targetSchool||"—")}</td>
+      <td><div class="actions">
+        <button onclick="openEdit('${r.id}')">編集</button>
+        <button class="danger" onclick="deleteRecord('${r.id}')">削除</button>
+      </div></td>`;
+    body.appendChild(tr);
+  });
+}
+
+function drawChart(){
+  const canvas=$("trendChart");
+  const rect=canvas.getBoundingClientRect();
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=rect.width*dpr; canvas.height=rect.height*dpr;
+  const ctx=canvas.getContext("2d"); ctx.scale(dpr,dpr);
+  const W=rect.width,H=rect.height;
+  ctx.clearRect(0,0,W,H);
+
+  const data=[...records].filter(r=>r.totalScore!=null).sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+  ctx.font="12px -apple-system, sans-serif";
+  if(data.length===0){
+    ctx.fillStyle="#697386"; ctx.textAlign="center"; ctx.fillText("成績を登録するとここに推移が表示されます",W/2,H/2); return;
+  }
+  const pad={l:48,r:18,t:18,b:48};
+  const vals=data.map(r=>r.totalScore);
+  let min=Math.min(...vals),max=Math.max(...vals);
+  const range=Math.max(50,max-min);
+  min=Math.floor((min-range*.18)/50)*50; max=Math.ceil((max+range*.18)/50)*50;
+  if(min===max){min-=50;max+=50}
+
+  const x=i=>pad.l+(W-pad.l-pad.r)*(data.length===1?.5:i/(data.length-1));
+  const y=v=>pad.t+(H-pad.t-pad.b)*(1-(v-min)/(max-min));
+
+  ctx.strokeStyle="#dfe5ee"; ctx.lineWidth=1; ctx.fillStyle="#697386";
+  ctx.textAlign="right"; ctx.textBaseline="middle";
+  for(let i=0;i<=4;i++){
+    const v=min+(max-min)*i/4, yy=y(v);
+    ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(W-pad.r,yy);ctx.stroke();
+    ctx.fillText(Math.round(v),pad.l-8,yy);
+  }
+
+  ctx.strokeStyle="#315efb"; ctx.lineWidth=3; ctx.beginPath();
+  data.forEach((r,i)=>{const xx=x(i),yy=y(r.totalScore); i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy)});
+  ctx.stroke();
+
+  data.forEach((r,i)=>{
+    const xx=x(i),yy=y(r.totalScore);
+    ctx.fillStyle="#fff";ctx.strokeStyle="#315efb";ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(xx,yy,5,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle="#182033";ctx.textAlign="center";ctx.textBaseline="bottom";
+    ctx.fillText(fmt(r.totalScore,0),xx,yy-8);
+    ctx.fillStyle="#697386";ctx.textBaseline="top";
+    const label=(r.date||"").slice(5).replace("-","/");
+    ctx.fillText(label,xx,H-pad.b+10);
+  });
+}
+
+function render(){ renderStats(); renderTable(); drawChart(); }
+["searchInput","typeFilter","sortSelect"].forEach(id=>$(id).addEventListener(id==="searchInput"?"input":"change",renderTable));
+window.addEventListener("resize",drawChart);
+
+function csvEscape(v){
+  const s=String(v??"").replaceAll('"','""');
+  return `"${s}"`;
+}
+$("exportBtn").onclick=()=>{
+  const headers=["id","date","name","type","totalScore","maxScore","deviation","rank","participants","judgement","targetSchool","targetScore","good","issues","nextAction","subjects_json"];
+  const lines=[headers.join(",")];
+  records.forEach(r=>lines.push(headers.map(h=>csvEscape(h==="subjects_json"?JSON.stringify(r.subjects||[]):r[h])).join(",")));
+  const blob=new Blob(["\ufeff"+lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="模試成績データ.csv";a.click();URL.revokeObjectURL(a.href);
+};
+
+function parseCSV(text){
+  const rows=[];let row=[],cell="",q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i],n=text[i+1];
+    if(q){
+      if(c=='"'&&n=='"'){cell+='"';i++}
+      else if(c=='"') q=false;
+      else cell+=c;
+    }else{
+      if(c=='"')q=true;
+      else if(c==","){row.push(cell);cell=""}
+      else if(c=="\n"){row.push(cell);rows.push(row);row=[];cell=""}
+      else if(c!="\r")cell+=c;
+    }
+  }
+  if(cell.length||row.length){row.push(cell);rows.push(row)}
+  return rows;
+}
+$("importFile").onchange=async e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const rows=parseCSV(await file.text());
+  const headers=rows.shift();
+  const out=rows.filter(r=>r.some(Boolean)).map(cols=>{
+    const o={};headers.forEach((h,i)=>o[h]=cols[i]??"");
+    ["totalScore","maxScore","deviation","rank","participants","targetScore"].forEach(k=>o[k]=o[k]===""?null:Number(o[k]));
+    try{o.subjects=JSON.parse(o.subjects_json||"[]")}catch{o.subjects=[]}
+    delete o.subjects_json; if(!o.id)o.id=uid(); return o;
+  });
+  if(confirm(`${out.length}件のデータを読み込み、現在のデータに追加しますか？`)){
+    records=[...records,...out];saveRecords();render();
+  }
+  e.target.value="";
+};
+
+$("clearBtn").onclick=()=>{
+  if(confirm("保存されている模試データをすべて削除します。元に戻せません。よろしいですか？")){
+    records=[];saveRecords();render();
+  }
+};
+
+$("sampleBtn").onclick=()=>{
+  const sample=[
+    {id:uid(),date:"2026-08-12",name:"第1回共通テスト模試",type:"共通テスト模試",totalScore:566,maxScore:1000,deviation:52.4,rank:3120,participants:18000,judgement:"E",targetSchool:"名古屋大学 工学部",targetScore:800,good:"英語リーディングは安定。",issues:"数学IAで時間配分を崩した。",nextAction:"数学IAを週2セット演習。",subjects:[
+      {name:"英語R",score:80,max:100,deviation:61.0},{name:"数学IA",score:33,max:100,deviation:44.0},{name:"物理",score:58,max:100,deviation:52.0},{name:"化学",score:61,max:100,deviation:54.0}
+    ]},
+    {id:uid(),date:"2026-09-09",name:"第2回共通テスト模試",type:"共通テスト模試",totalScore:642,maxScore:1000,deviation:56.9,rank:2010,participants:19000,judgement:"D",targetSchool:"名古屋大学 工学部",targetScore:800,good:"数学・理科が改善。",issues:"国語とリスニングに伸びしろ。",nextAction:"電磁気・有機を優先しつつ共通テ形式も継続。",subjects:[
+      {name:"英語R",score:82,max:100,deviation:62.1},{name:"数学IA",score:68,max:100,deviation:55.0},{name:"物理",score:67,max:100,deviation:56.0},{name:"化学",score:72,max:100,deviation:58.0}
+    ]}
+  ];
+  records=[...records,...sample];saveRecords();render();
+};
+
+function escapeHtml(s){
+  return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+render();
+</script>
+
+<script>
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+  });
+}
+</script>
+
+</body>
+</html>
